@@ -1,0 +1,97 @@
+# Builds the Curatune web app from the public source repo and publishes it to https://curatune.github.io/.
+# This repo holds no app code: each run checks out gabriel-dg/curatune at the given ref, builds web/ with
+# the settings below, and deploys the result with GitHub Pages (Settings > Pages > Source: GitHub Actions).
+#
+# Settings come from this repo's Actions variables (Settings > Secrets and variables > Actions > Variables).
+# None of them are secrets: they end up in the public page bundle anyway.
+#   VITE_SPOTIFY_CLIENT_ID    required. Client ID of the Spotify app registered for this site, with
+#                             https://curatune.github.io/callback as its redirect URI.
+#   VITE_HOSTED_LLM_BASE_URL  optional. HTTPS, OpenAI-compatible endpoint the user brings a key for.
+#   VITE_HOSTED_LLM_MODEL     optional. Comma-separated model ids for that endpoint.
+#   VITE_HOSTED_LLM_NAME      optional. Label shown in the model selector.
+# A local model (VITE_LLM_BASE_URL) is not set on purpose: an https page cannot reach a LAN http endpoint.
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit of gabriel-dg/curatune to build
+        required: true
+        default: main
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check required settings
+        env:
+          CLIENT_ID: ${{ vars.VITE_SPOTIFY_CLIENT_ID }}
+        run: |
+          if [ -z "$CLIENT_ID" ]; then
+            echo "::error::Set the VITE_SPOTIFY_CLIENT_ID Actions variable first."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: gabriel-dg/curatune
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Record the source commit
+        run: echo "Building gabriel-dg/curatune@$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        working-directory: web
+        run: npm ci
+
+      - name: Test
+        working-directory: web
+        run: npm test
+
+      - name: Build
+        working-directory: web
+        env:
+          VITE_BASE_PATH: /
+          VITE_SPOTIFY_CLIENT_ID: ${{ vars.VITE_SPOTIFY_CLIENT_ID }}
+          VITE_HOSTED_LLM_BASE_URL: ${{ vars.VITE_HOSTED_LLM_BASE_URL }}
+          VITE_HOSTED_LLM_MODEL: ${{ vars.VITE_HOSTED_LLM_MODEL }}
+          VITE_HOSTED_LLM_NAME: ${{ vars.VITE_HOSTED_LLM_NAME }}
+        run: npm run build
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

@@ -9,6 +9,8 @@
 #   VITE_HOSTED_LLM_BASE_URL  optional. HTTPS, OpenAI-compatible endpoint the user brings a key for.
 #   VITE_HOSTED_LLM_MODEL     optional. Comma-separated model ids for that endpoint.
 #   VITE_HOSTED_LLM_NAME      optional. Label shown in the model selector.
+#   VITE_HOSTED_LLM_2_BASE_URL, VITE_HOSTED_LLM_2_MODEL, VITE_HOSTED_LLM_2_NAME
+#                             optional. A second hosted provider (e.g. Claude), same rules, its own key.
 # A local model (VITE_LLM_BASE_URL) is not set on purpose: an https page cannot reach a LAN http endpoint.
 
 name: Deploy
@@ -74,6 +76,9 @@ jobs:
           VITE_HOSTED_LLM_BASE_URL: ${{ vars.VITE_HOSTED_LLM_BASE_URL }}
           VITE_HOSTED_LLM_MODEL: ${{ vars.VITE_HOSTED_LLM_MODEL }}
           VITE_HOSTED_LLM_NAME: ${{ vars.VITE_HOSTED_LLM_NAME }}
+          VITE_HOSTED_LLM_2_BASE_URL: ${{ vars.VITE_HOSTED_LLM_2_BASE_URL }}
+          VITE_HOSTED_LLM_2_MODEL: ${{ vars.VITE_HOSTED_LLM_2_MODEL }}
+          VITE_HOSTED_LLM_2_NAME: ${{ vars.VITE_HOSTED_LLM_2_NAME }}
         run: npm run build
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
